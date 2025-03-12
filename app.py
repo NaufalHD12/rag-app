@@ -13,33 +13,22 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 def display_pdf(uploaded_file):
-    """Display a PDF file in an iframe with CSP headers."""
+    """Display PDF in an HTML object tag instead of iframe."""
     bytes_data = uploaded_file.getvalue()
     base64_pdf = base64.b64encode(bytes_data).decode('utf-8')
     
-    # Add Content-Security-Policy to allow data URIs
-    st.markdown(
-        """
-        <style>
-        iframe {
-            width: 100%;
-            height: 800px;
-        }
-        </style>
-        """, 
-        unsafe_allow_html=True
-    )
-    
-    # Create iframe with sandbox attribute for additional security
     pdf_display = f"""
-    <iframe 
-        src="data:application/pdf;base64,{base64_pdf}" 
-        type="application/pdf"
-        sandbox="allow-scripts"
-    ></iframe>
+    <object data="data:application/pdf;base64,{base64_pdf}" type="application/pdf" width="100%" height="800px">
+        <p>PDF preview is not supported in your browser. <a href="data:application/pdf;base64,{base64_pdf}" download>Download PDF</a></p>
+    </object>
     """
-    
-    st.markdown(pdf_display, unsafe_allow_html=True)
+    st.components.v1.html(pdf_display, height=820)
+
+uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
+if uploaded_file is not None:
+    display_pdf(uploaded_file)
+
+
 def load_streamlit_page():
     """Load the Streamlit page with improved UI layout."""
     st.set_page_config(layout="wide", page_title="LLM x RAG", page_icon="📄")
