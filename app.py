@@ -13,11 +13,10 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 def display_pdf(uploaded_file):
-    """Display a PDF file in an iframe."""
-    bytes_data = uploaded_file.getvalue()
-    base64_pdf = base64.b64encode(bytes_data).decode('utf-8')
-    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800px" type="application/pdf"></iframe>'
-    st.markdown(pdf_display, unsafe_allow_html=True)
+    """Display a PDF file using Streamlit's built-in methods."""
+    # Display the PDF directly
+    st.write("PDF Preview:")
+    st.pdf(uploaded_file)
 
 def load_streamlit_page():
     """Load the Streamlit page with improved UI layout."""
