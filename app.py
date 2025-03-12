@@ -12,21 +12,20 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 # Get API Key
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
-def display_pdf(uploaded_file):
-    """Display PDF in an HTML object tag instead of iframe."""
-    bytes_data = uploaded_file.getvalue()
-    base64_pdf = base64.b64encode(bytes_data).decode('utf-8')
+def save_and_display_pdf(uploaded_file):
+    """Save uploaded PDF and generate URL to view it."""
+    file_path = f"./pdfs/{uploaded_file.name}"
     
-    pdf_display = f"""
-    <object data="data:application/pdf;base64,{base64_pdf}" type="application/pdf" width="100%" height="800px">
-        <p>PDF preview is not supported in your browser. <a href="data:application/pdf;base64,{base64_pdf}" download>Download PDF</a></p>
-    </object>
-    """
-    st.components.v1.html(pdf_display, height=820)
+    # Simpan file ke folder 'pdfs'
+    with open(file_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    
+    # Tampilkan link ke file
+    st.markdown(f"[📄 View PDF](/{file_path})", unsafe_allow_html=True)
 
 uploaded_file = st.file_uploader("Upload a PDF", type="pdf")
 if uploaded_file is not None:
-    display_pdf(uploaded_file)
+    save_and_display_pdf(uploaded_file)
 
 
 def load_streamlit_page():
@@ -51,7 +50,7 @@ col1, col2, uploaded_pdf, uploaded_excel = load_streamlit_page()
 if uploaded_pdf is not None:
     with col2:
         st.subheader("📑 Pratinjau PDF")
-        display_pdf(uploaded_pdf)
+        save_and_display_pdf(uploaded_pdf)
     
     with st.spinner("Mengekstrak teks dari PDF..."):
         documents = get_pdf_text(uploaded_pdf)
