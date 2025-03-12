@@ -13,10 +13,19 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 def display_pdf(uploaded_file):
-    """Display a PDF file using Streamlit's built-in methods."""
-    # Display the PDF directly
-    st.write("PDF Preview:")
-    st.pdf(uploaded_file)
+    """Display PDF as images using pdf2image."""
+    try:
+        from pdf2image import convert_from_bytes
+        import numpy as np
+        from PIL import Image
+        
+        images = convert_from_bytes(uploaded_file.getvalue())
+        
+        for i, image in enumerate(images):
+            st.image(np.array(image), caption=f'Page {i+1}', use_column_width=True)
+    except ImportError:
+        st.error("Please install pdf2image: pip install pdf2image")
+        st.error("And poppler: https://github.com/oschwartz10612/poppler-windows/releases/ (for Windows)")
 
 def load_streamlit_page():
     """Load the Streamlit page with improved UI layout."""
