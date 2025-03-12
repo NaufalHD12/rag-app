@@ -5,6 +5,10 @@ import base64
 import io
 from functions import *
 
+__import__('pysqlite3')
+import sys
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+
 # Get API Key
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
