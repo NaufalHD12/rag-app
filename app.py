@@ -13,20 +13,33 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 def display_pdf(uploaded_file):
-    """Display PDF as images using pdf2image."""
-    try:
-        from pdf2image import convert_from_bytes
-        import numpy as np
-        from PIL import Image
-        
-        images = convert_from_bytes(uploaded_file.getvalue())
-        
-        for i, image in enumerate(images):
-            st.image(np.array(image), caption=f'Page {i+1}', use_column_width=True)
-    except ImportError:
-        st.error("Please install pdf2image: pip install pdf2image")
-        st.error("And poppler: https://github.com/oschwartz10612/poppler-windows/releases/ (for Windows)")
-
+    """Display a PDF file in an iframe with CSP headers."""
+    bytes_data = uploaded_file.getvalue()
+    base64_pdf = base64.b64encode(bytes_data).decode('utf-8')
+    
+    # Add Content-Security-Policy to allow data URIs
+    st.markdown(
+        """
+        <style>
+        iframe {
+            width: 100%;
+            height: 800px;
+        }
+        </style>
+        """, 
+        unsafe_allow_html=True
+    )
+    
+    # Create iframe with sandbox attribute for additional security
+    pdf_display = f"""
+    <iframe 
+        src="data:application/pdf;base64,{base64_pdf}" 
+        type="application/pdf"
+        sandbox="allow-scripts"
+    ></iframe>
+    """
+    
+    st.markdown(pdf_display, unsafe_allow_html=True)
 def load_streamlit_page():
     """Load the Streamlit page with improved UI layout."""
     st.set_page_config(layout="wide", page_title="LLM x RAG", page_icon="📄")
