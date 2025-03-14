@@ -1,9 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
-import base64
 import io
-import tempfile
 from functions import *
 
 __import__('pysqlite3')
@@ -12,41 +10,6 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 # Get API Key
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
-
-def create_download_link(uploaded_file):
-    """Create a more reliable link to open PDF in a new tab."""
-    # Create a unique filename for this session
-    if 'pdf_files' not in st.session_state:
-        st.session_state.pdf_files = {}
-    
-    # Generate a unique ID for this file
-    file_id = str(uuid.uuid4())
-    
-    # Create a temporary file with a consistent path
-    temp_dir = tempfile.gettempdir()
-    temp_path = os.path.join(temp_dir, f"{file_id}.pdf")
-    
-    # Write the uploaded file to the temporary location
-    with open(temp_path, "wb") as f:
-        f.write(uploaded_file.getvalue())
-    
-    # Store the path in session state to track it
-    st.session_state.pdf_files[file_id] = temp_path
-    
-    # Create a download link that uses streamlit's download_button under the hood
-    pdf_data = uploaded_file.getvalue()
-    
-    st.download_button(
-        label="🔍 Lihat PDF di Tab Baru",
-        data=pdf_data,
-        file_name=uploaded_file.name,
-        mime="application/pdf",
-        key=f"pdf_viewer_{file_id}",
-        use_container_width=True
-    )
-    
-    # Instructions for opening in new tab
-    st.info("💡 Klik tombol di atas, lalu klik kanan pada file yang diunduh dan pilih 'Buka di Tab Baru'")
 
 def load_streamlit_page():
     """Load the Streamlit page with improved UI layout."""
@@ -105,7 +68,7 @@ if 'merged_df' not in st.session_state:
 st_page = load_streamlit_page()
 
 # Create two columns for upload section with 1:4 ratio
-col1, col2 = st.columns([1, 3])
+col1, col2 = st.columns([1, 4])
 
 # Left column for uploads and controls
 with col1:
@@ -115,8 +78,6 @@ with col1:
     
     if uploaded_pdf is not None:
         st.success(f"✅ File berhasil diunggah: {uploaded_pdf.name}")
-        # Add link to view PDF in new tab instead of preview
-        create_download_link(uploaded_pdf)
         
         if st.button("🔍 Ekstrak Informasi dari PDF", use_container_width=True):
             with st.spinner("Mengekstrak teks dari PDF..."):
