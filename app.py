@@ -27,7 +27,7 @@ def display_pdf(uploaded_file):
     # Use object tag instead of iframe for better browser compatibility
     pdf_display = f"""
         <object data="data:application/pdf;base64,{base64_pdf}" type="application/pdf" width="100%" height="800px">
-            <p>Browser tidak dapat menampilkan PDF. <a href="data:application/pdf;base64,{base64_pdf}" download="document.pdf">Download PDF</a> sebagai alternatif.</p>
+            <p>Browser tidak dapat menampilkan PDF.</p>
         </object>
     """
     st.markdown(pdf_display, unsafe_allow_html=True)
@@ -44,10 +44,6 @@ def load_streamlit_page():
         <style>
         .main {
             padding: 1rem 1rem;
-        }
-        .stApp {
-            max-width: 1200px;
-            margin: 0 auto;
         }
         .stButton>button {
             background-color: #4CAF50;
@@ -79,9 +75,8 @@ def load_streamlit_page():
     st.markdown("Aplikasi ini membantu Anda mengekstrak informasi dari dokumen dan menyimpannya dalam format Excel.")
     
     st.markdown("---")
-    col1, col2 = st.columns([0.4, 0.6])
     
-    return col1, col2
+    return st
 
 # Initialize session state variables if they don't exist
 if 'vector_store' not in st.session_state:
@@ -94,7 +89,10 @@ if 'merged_df' not in st.session_state:
     st.session_state.merged_df = None
 
 # Initialize Streamlit page
-col1, col2 = load_streamlit_page()
+st_page = load_streamlit_page()
+
+# Create two columns for upload section
+col1, col2 = st.columns([0.4, 0.6])
 
 # Left column for uploads and controls
 with col1:
@@ -133,91 +131,91 @@ with col1:
         st.success(f"✅ File Excel berhasil diunggah: {uploaded_excel.name}")
     
     st.markdown('</div>', unsafe_allow_html=True)
-    
-    # Display extracted data from PDF if available
-    if st.session_state.generated_data is not None and not st.session_state.generated_data.empty:
-        st.subheader("📋 Data Hasil Ekstraksi")
-        st.dataframe(st.session_state.generated_data, use_container_width=True)
-        
-        # Process Excel file and show merge button only if both PDF data and Excel exist
-        if uploaded_excel is not None:
-            if st.button("🔄 Gabungkan Data", use_container_width=True):
-                with st.spinner("Memproses file Excel..."):
-                    try:
-                        excel_df = pd.read_excel(uploaded_excel, skiprows=3)
-                        
-                        # Correct column names
-                        correct_columns = ["NO", "HARI", "TANGGAL", "AGENDA", "LOKASI", 
-                                         "REQUESTOR", "LAYANAN", "TYPE_ACARA", "SITE", "WORKING_HOUR"]
-                        
-                        # Rename existing columns if necessary
-                        if len(excel_df.columns) == len(correct_columns):
-                            excel_df.columns = correct_columns
-                        
-                        # Format date column
-                        excel_df["TANGGAL"] = pd.to_datetime(excel_df['TANGGAL'], errors='coerce').dt.strftime('%d %B %Y')
-                        
-                        # Convert NO to numeric and find the last number
-                        excel_df["NO"] = pd.to_numeric(excel_df["NO"], errors="coerce")
-                        last_no = excel_df["NO"].dropna().max() or 0
-                        
-                        # Add new data with incremented NO
-                        generated_df = st.session_state.generated_data.copy()
-                        generated_df.insert(0, "NO", range(int(last_no) + 1, int(last_no) + 1 + len(generated_df)))
-                        
-                        # Merge data
-                        merged_df = pd.concat([excel_df, generated_df], ignore_index=True)
-                        st.session_state.merged_df = merged_df
-                        
-                        st.success("✅ Data berhasil digabungkan!")
-                    except Exception as e:
-                        st.error(f"❌ Terjadi kesalahan: {str(e)}")
 
-# Right column for PDF preview and merged data
+# Right column for PDF preview
 with col2:
     # Show PDF preview only if uploaded
     if uploaded_pdf is not None:
         st.subheader("📑 Pratinjau PDF")
         display_pdf(uploaded_pdf)
+
+# Display extracted data from PDF in full width
+if st.session_state.generated_data is not None and not st.session_state.generated_data.empty:
+    st.subheader("📋 Data Hasil Ekstraksi")
+    st.dataframe(st.session_state.generated_data, use_container_width=True)
     
-    # Show merged data if available
-    if st.session_state.merged_df is not None:
-        st.subheader("🔄 Data Gabungan")
-        st.dataframe(st.session_state.merged_df, use_container_width=True)
+    # Process Excel file and show merge button only if both PDF data and Excel exist
+    if uploaded_excel is not None:
+        if st.button("🔄 Gabungkan Data", use_container_width=True):
+            with st.spinner("Memproses file Excel..."):
+                try:
+                    excel_df = pd.read_excel(uploaded_excel, skiprows=3)
+                    
+                    # Correct column names
+                    correct_columns = ["NO", "HARI", "TANGGAL", "AGENDA", "LOKASI", 
+                                     "REQUESTOR", "LAYANAN", "TYPE_ACARA", "SITE", "WORKING_HOUR"]
+                    
+                    # Rename existing columns if necessary
+                    if len(excel_df.columns) == len(correct_columns):
+                        excel_df.columns = correct_columns
+                    
+                    # Format date column
+                    excel_df["TANGGAL"] = pd.to_datetime(excel_df['TANGGAL'], errors='coerce').dt.strftime('%d %B %Y')
+                    
+                    # Convert NO to numeric and find the last number
+                    excel_df["NO"] = pd.to_numeric(excel_df["NO"], errors="coerce")
+                    last_no = excel_df["NO"].dropna().max() or 0
+                    
+                    # Add new data with incremented NO
+                    generated_df = st.session_state.generated_data.copy()
+                    generated_df.insert(0, "NO", range(int(last_no) + 1, int(last_no) + 1 + len(generated_df)))
+                    
+                    # Merge data
+                    merged_df = pd.concat([excel_df, generated_df], ignore_index=True)
+                    st.session_state.merged_df = merged_df
+                    
+                    st.success("✅ Data berhasil digabungkan!")
+                except Exception as e:
+                    st.error(f"❌ Terjadi kesalahan: {str(e)}")
+
+# Show merged data in full width if available
+if st.session_state.merged_df is not None:
+    st.subheader("🔄 Data Gabungan")
+    st.dataframe(st.session_state.merged_df, use_container_width=True, height=400)
+    
+    # Create Excel file for download
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+        st.session_state.merged_df.to_excel(writer, sheet_name="Sheet1", startrow=3, index=False)
+        workbook = writer.book
+        worksheet = writer.sheets["Sheet1"]
         
-        # Create Excel file for download
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            st.session_state.merged_df.to_excel(writer, sheet_name="Sheet1", startrow=3, index=False)
-            workbook = writer.book
-            worksheet = writer.sheets["Sheet1"]
-            
-            # Set column widths
-            column_widths = {"NO": 5, "HARI": 10, "TANGGAL": 15, "AGENDA": 30, "LOKASI": 25, 
-                            "REQUESTOR": 20, "LAYANAN": 20, "TYPE_ACARA": 20, "SITE": 15, "WORKING_HOUR": 15}
-            
-            for col_num, (col_name, width) in enumerate(column_widths.items()):
-                worksheet.set_column(col_num, col_num, width)
-            
-            # Add title formatting
-            title_format = workbook.add_format({
-                'bold': True, 
-                'align': 'center', 
-                'valign': 'vcenter', 
-                'font_size': 14
-            })
-            
-            # Add title
-            worksheet.merge_range(1, 0, 1, len(st.session_state.merged_df.columns) - 1, 
-                                "SUPPORT LAYANAN SOUND SYSTEM & MULTIMEDIA SSC ICT RU VI BALONGAN", title_format)
+        # Set column widths
+        column_widths = {"NO": 5, "HARI": 10, "TANGGAL": 15, "AGENDA": 50, "LOKASI": 25, 
+                        "REQUESTOR": 20, "LAYANAN": 20, "TYPE_ACARA": 20, "SITE": 15, "WORKING_HOUR": 15}
         
-        output.seek(0)
+        for col_num, (col_name, width) in enumerate(column_widths.items()):
+            worksheet.set_column(col_num, col_num, width)
         
-        # Download button
-        st.download_button(
-            label="📥 Unduh Excel Baru",
-            data=output,
-            file_name="Support Sound Multimedia.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
+        # Add title formatting
+        title_format = workbook.add_format({
+            'bold': True, 
+            'align': 'center', 
+            'valign': 'vcenter', 
+            'font_size': 14
+        })
+        
+        # Add title
+        worksheet.merge_range(1, 0, 1, len(st.session_state.merged_df.columns) - 1, 
+                            "SUPPORT LAYANAN SOUND SYSTEM & MULTIMEDIA SSC ICT RU VI BALONGAN", title_format)
+    
+    output.seek(0)
+    
+    # Download button
+    st.download_button(
+        label="📥 Unduh Excel Hasil Gabungan",
+        data=output,
+        file_name="Support Sound Multimedia.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        use_container_width=True
+    )
