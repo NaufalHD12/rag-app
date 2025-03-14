@@ -14,26 +14,9 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 def display_pdf(uploaded_file):
-    """Display a PDF file safely."""
-    # Create a temporary file
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-        tmp_file.write(uploaded_file.getvalue())
-        tmp_path = tmp_file.name
-    
-    # Use PDF object tag which is more reliable than data URIs
-    with open(tmp_path, "rb") as f:
-        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
-    
-    # Use object tag instead of iframe for better browser compatibility
-    pdf_display = f"""
-        <object data="data:application/pdf;base64,{base64_pdf}" type="application/pdf" width="100%" height="800px">
-            <p>Browser tidak dapat menampilkan PDF.</p>
-        </object>
-    """
-    st.markdown(pdf_display, unsafe_allow_html=True)
-    
-    # Cleanup temp file
-    os.unlink(tmp_path)
+    """Display a PDF file using Streamlit's native functionality."""
+    st.write("PDF Content:")
+    st.write(uploaded_file)  # Streamlit can handle PDFs directly
 
 def load_streamlit_page():
     """Load the Streamlit page with improved UI layout."""
