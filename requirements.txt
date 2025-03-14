@@ -147,4 +147,3 @@ pysqlite3-binary
 openpyxl
 xlsxwriter
 PyPDF2
-math
