@@ -108,7 +108,7 @@ with col1:
     
     # Add merge button inside the sidebar if both files are uploaded
     if uploaded_excel is not None and st.session_state.generated_data is not None:
-        if st.button("🔄 Gabungkan Data", use_container_width=True):
+        if st.button("🔄 Insert Informasi ke Excel", use_container_width=True):
             with st.spinner("Memproses file Excel..."):
                 try:
                     excel_df = pd.read_excel(uploaded_excel, skiprows=3)
@@ -184,7 +184,7 @@ with col2:
         
         # Download button
         st.download_button(
-            label="📥 Unduh Excel Hasil Gabungan",
+            label="📥 Unduh Excel Baru",
             data=output,
             file_name="Support Sound Multimedia.xlsx",
             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
