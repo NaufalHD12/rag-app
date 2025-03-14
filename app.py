@@ -5,7 +5,6 @@ import base64
 import io
 import tempfile
 from functions import *
-import PyPDF2
 
 __import__('pysqlite3')
 import sys
@@ -14,43 +13,23 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 # Get API Key
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
-
-import PyPDF2
-import math
-
-def display_pdf(uploaded_file):
-    """Display text content from a PDF with pages in columns."""
-    pdf_reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.getvalue()))
-    total_pages = len(pdf_reader.pages)
+def create_download_link(uploaded_file):
+    """Create a link to open PDF in a new tab."""
+    # Create a temporary file
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+        tmp_file.write(uploaded_file.getvalue())
+        tmp_path = tmp_file.name
     
-    # Determine layout: 2 columns if more than 1 page
-    if total_pages > 1:
-        cols_per_row = 2
-    else:
-        cols_per_row = 1
+    # Convert PDF to base64
+    with open(tmp_path, "rb") as f:
+        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
     
-    # Calculate how many rows we need
-    rows_needed = math.ceil(total_pages / cols_per_row)
+    # Create a link to open PDF in new tab
+    pdf_link = f'<a href="data:application/pdf;base64,{base64_pdf}" target="_blank"><button style="background-color: #4CAF50; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">🔍 Lihat PDF di Tab Baru</button></a>'
+    st.markdown(pdf_link, unsafe_allow_html=True)
     
-    with st.expander("PDF Preview", expanded=True):
-        for row in range(rows_needed):
-            # Create columns for this row
-            columns = st.columns(cols_per_row)
-            
-            # Fill each column with a page
-            for col_idx in range(cols_per_row):
-                page_idx = row * cols_per_row + col_idx
-                
-                # Check if we still have pages left
-                if page_idx < total_pages:
-                    with columns[col_idx]:
-                        st.subheader(f"Page {page_idx+1}")
-                        # Add a scrollable container for each page's text
-                        st.markdown(f"""
-                        <div style="height: 300px; overflow-y: auto; border: 1px solid #e6e6e6; padding: 10px; border-radius: 5px;">
-                            <pre style="white-space: pre-wrap;">{pdf_reader.pages[page_idx].extract_text()}</pre>
-                        </div>
-                        """, unsafe_allow_html=True)
+    # Cleanup temp file
+    os.unlink(tmp_path)
 
 def load_streamlit_page():
     """Load the Streamlit page with improved UI layout."""
@@ -108,8 +87,8 @@ if 'merged_df' not in st.session_state:
 # Initialize Streamlit page
 st_page = load_streamlit_page()
 
-# Create two columns for upload section
-col1, col2 = st.columns([0.4, 0.6])
+# Create two columns for upload section with 1:4 ratio
+col1, col2 = st.columns([1, 4])
 
 # Left column for uploads and controls
 with col1:
@@ -119,6 +98,8 @@ with col1:
     
     if uploaded_pdf is not None:
         st.success(f"✅ File berhasil diunggah: {uploaded_pdf.name}")
+        # Add link to view PDF in new tab instead of preview
+        create_download_link(uploaded_pdf)
         
         if st.button("🔍 Ekstrak Informasi dari PDF", use_container_width=True):
             with st.spinner("Mengekstrak teks dari PDF..."):
@@ -147,22 +128,8 @@ with col1:
     if uploaded_excel is not None:
         st.success(f"✅ File Excel berhasil diunggah: {uploaded_excel.name}")
     
-    st.markdown('</div>', unsafe_allow_html=True)
-
-# Right column for PDF preview
-with col2:
-    # Show PDF preview only if uploaded
-    if uploaded_pdf is not None:
-        st.subheader("📑 Pratinjau PDF")
-        display_pdf(uploaded_pdf)
-
-# Display extracted data from PDF in full width
-if st.session_state.generated_data is not None and not st.session_state.generated_data.empty:
-    st.subheader("📋 Data Hasil Ekstraksi")
-    st.dataframe(st.session_state.generated_data, use_container_width=True)
-    
-    # Process Excel file and show merge button only if both PDF data and Excel exist
-    if uploaded_excel is not None:
+    # Add merge button inside the sidebar if both files are uploaded
+    if uploaded_excel is not None and st.session_state.generated_data is not None:
         if st.button("🔄 Gabungkan Data", use_container_width=True):
             with st.spinner("Memproses file Excel..."):
                 try:
@@ -194,45 +161,54 @@ if st.session_state.generated_data is not None and not st.session_state.generate
                     st.success("✅ Data berhasil digabungkan!")
                 except Exception as e:
                     st.error(f"❌ Terjadi kesalahan: {str(e)}")
+    
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# Show merged data in full width if available
-if st.session_state.merged_df is not None:
-    st.subheader("🔄 Data Gabungan")
-    st.dataframe(st.session_state.merged_df, use_container_width=True, height=400)
+# Right column for data displays
+with col2:
+    # Display extracted data from PDF
+    if st.session_state.generated_data is not None and not st.session_state.generated_data.empty:
+        st.subheader("📋 Data Hasil Ekstraksi")
+        st.dataframe(st.session_state.generated_data, use_container_width=True)
     
-    # Create Excel file for download
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        st.session_state.merged_df.to_excel(writer, sheet_name="Sheet1", startrow=3, index=False)
-        workbook = writer.book
-        worksheet = writer.sheets["Sheet1"]
+    # Show merged data if available
+    if st.session_state.merged_df is not None:
+        st.subheader("🔄 Data Gabungan")
+        st.dataframe(st.session_state.merged_df, use_container_width=True, height=400)
         
-        # Set column widths
-        column_widths = {"NO": 5, "HARI": 10, "TANGGAL": 15, "AGENDA": 50, "LOKASI": 25, 
-                        "REQUESTOR": 20, "LAYANAN": 20, "TYPE_ACARA": 20, "SITE": 15, "WORKING_HOUR": 15}
+        # Create Excel file for download
+        output = io.BytesIO()
+        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+            st.session_state.merged_df.to_excel(writer, sheet_name="Sheet1", startrow=3, index=False)
+            workbook = writer.book
+            worksheet = writer.sheets["Sheet1"]
+            
+            # Set column widths
+            column_widths = {"NO": 5, "HARI": 10, "TANGGAL": 15, "AGENDA": 50, "LOKASI": 25, 
+                            "REQUESTOR": 20, "LAYANAN": 20, "TYPE_ACARA": 20, "SITE": 15, "WORKING_HOUR": 15}
+            
+            for col_num, (col_name, width) in enumerate(column_widths.items()):
+                worksheet.set_column(col_num, col_num, width)
+            
+            # Add title formatting
+            title_format = workbook.add_format({
+                'bold': True, 
+                'align': 'center', 
+                'valign': 'vcenter', 
+                'font_size': 14
+            })
+            
+            # Add title
+            worksheet.merge_range(1, 0, 1, len(st.session_state.merged_df.columns) - 1, 
+                                "SUPPORT LAYANAN SOUND SYSTEM & MULTIMEDIA SSC ICT RU VI BALONGAN", title_format)
         
-        for col_num, (col_name, width) in enumerate(column_widths.items()):
-            worksheet.set_column(col_num, col_num, width)
+        output.seek(0)
         
-        # Add title formatting
-        title_format = workbook.add_format({
-            'bold': True, 
-            'align': 'center', 
-            'valign': 'vcenter', 
-            'font_size': 14
-        })
-        
-        # Add title
-        worksheet.merge_range(1, 0, 1, len(st.session_state.merged_df.columns) - 1, 
-                            "SUPPORT LAYANAN SOUND SYSTEM & MULTIMEDIA SSC ICT RU VI BALONGAN", title_format)
-    
-    output.seek(0)
-    
-    # Download button
-    st.download_button(
-        label="📥 Unduh Excel Hasil Gabungan",
-        data=output,
-        file_name="Support Sound Multimedia.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        use_container_width=True
-    )
+        # Download button
+        st.download_button(
+            label="📥 Unduh Excel Hasil Gabungan",
+            data=output,
+            file_name="Support Sound Multimedia.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
