@@ -48,7 +48,7 @@ def load_streamlit_page():
     """, unsafe_allow_html=True)
     
     st.title("📂 RAG untuk Pendataan Otomatis Support Layanan Sound System & Multimedia")
-    st.markdown("Aplikasi ini membantu Anda mengekstrak informasi dari dokumen dan menginputkannya ke template Excel yang sudah ada")
+    st.markdown("Aplikasi ini membantu Anda mengekstrak informasi dari PDF dan menginputkannya ke template Excel yang sudah ada")
     
     st.markdown("---")
     
