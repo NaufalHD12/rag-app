@@ -68,7 +68,7 @@ if 'merged_df' not in st.session_state:
 st_page = load_streamlit_page()
 
 # Create two columns for upload section with 1:4 ratio
-col1, col2 = st.columns([1, 4])
+col1, col2 = st.columns([1, 3])
 
 # Left column for uploads and controls
 with col1:
