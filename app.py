@@ -14,16 +14,43 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 # Get API Key
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
+
 import PyPDF2
+import math
 
 def display_pdf(uploaded_file):
-    """Display text content from a PDF."""
+    """Display text content from a PDF with pages in columns."""
     pdf_reader = PyPDF2.PdfReader(io.BytesIO(uploaded_file.getvalue()))
+    total_pages = len(pdf_reader.pages)
+    
+    # Determine layout: 2 columns if more than 1 page
+    if total_pages > 1:
+        cols_per_row = 2
+    else:
+        cols_per_row = 1
+    
+    # Calculate how many rows we need
+    rows_needed = math.ceil(total_pages / cols_per_row)
     
     with st.expander("PDF Preview", expanded=True):
-        for i, page in enumerate(pdf_reader.pages):
-            st.subheader(f"Page {i+1}")
-            st.text(page.extract_text())
+        for row in range(rows_needed):
+            # Create columns for this row
+            columns = st.columns(cols_per_row)
+            
+            # Fill each column with a page
+            for col_idx in range(cols_per_row):
+                page_idx = row * cols_per_row + col_idx
+                
+                # Check if we still have pages left
+                if page_idx < total_pages:
+                    with columns[col_idx]:
+                        st.subheader(f"Page {page_idx+1}")
+                        # Add a scrollable container for each page's text
+                        st.markdown(f"""
+                        <div style="height: 300px; overflow-y: auto; border: 1px solid #e6e6e6; padding: 10px; border-radius: 5px;">
+                            <pre style="white-space: pre-wrap;">{pdf_reader.pages[page_idx].extract_text()}</pre>
+                        </div>
+                        """, unsafe_allow_html=True)
 
 def load_streamlit_page():
     """Load the Streamlit page with improved UI layout."""
