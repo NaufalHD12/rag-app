@@ -14,22 +14,39 @@ sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
 def create_download_link(uploaded_file):
-    """Create a link to open PDF in a new tab."""
-    # Create a temporary file
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-        tmp_file.write(uploaded_file.getvalue())
-        tmp_path = tmp_file.name
+    """Create a more reliable link to open PDF in a new tab."""
+    # Create a unique filename for this session
+    if 'pdf_files' not in st.session_state:
+        st.session_state.pdf_files = {}
     
-    # Convert PDF to base64
-    with open(tmp_path, "rb") as f:
-        base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+    # Generate a unique ID for this file
+    file_id = str(uuid.uuid4())
     
-    # Create a link to open PDF in new tab
-    pdf_link = f'<a href="data:application/pdf;base64,{base64_pdf}" target="_blank"><button style="background-color: #4CAF50; color: white; padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer;">🔍 Lihat PDF di Tab Baru</button></a>'
-    st.markdown(pdf_link, unsafe_allow_html=True)
+    # Create a temporary file with a consistent path
+    temp_dir = tempfile.gettempdir()
+    temp_path = os.path.join(temp_dir, f"{file_id}.pdf")
     
-    # Cleanup temp file
-    os.unlink(tmp_path)
+    # Write the uploaded file to the temporary location
+    with open(temp_path, "wb") as f:
+        f.write(uploaded_file.getvalue())
+    
+    # Store the path in session state to track it
+    st.session_state.pdf_files[file_id] = temp_path
+    
+    # Create a download link that uses streamlit's download_button under the hood
+    pdf_data = uploaded_file.getvalue()
+    
+    st.download_button(
+        label="🔍 Lihat PDF di Tab Baru",
+        data=pdf_data,
+        file_name=uploaded_file.name,
+        mime="application/pdf",
+        key=f"pdf_viewer_{file_id}",
+        use_container_width=True
+    )
+    
+    # Instructions for opening in new tab
+    st.info("💡 Klik tombol di atas, lalu klik kanan pada file yang diunduh dan pilih 'Buka di Tab Baru'")
 
 def load_streamlit_page():
     """Load the Streamlit page with improved UI layout."""
