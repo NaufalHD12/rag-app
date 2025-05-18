@@ -1,0 +1,25 @@
+/* style.css */
+.pdf-container {
+    background: #f8f9fa;
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.stButton>button {
+    transition: all 0.3s ease;
+}
+
+.stButton>button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+}
+
+.st-emotion-cache-1q7spjk {
+    border: 1px solid #e1e4e8 !important;
+    border-radius: 8px !important;
+}
+
+.stMarkdown {
+    line-height: 1.6;
+}

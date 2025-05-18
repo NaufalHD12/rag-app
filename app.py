@@ -1,192 +1,234 @@
 import streamlit as st
 import pandas as pd
 import os
+import base64
 import io
 from functions import *
+from datetime import datetime
 
-__import__('pysqlite3')
-import sys
-sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
+# Set page config FIRST - before any other Streamlit commands
+st.set_page_config(
+    layout="wide", 
+    page_title="Alat LLM - Pendataan Sound System", 
+    page_icon="🎤",
+    initial_sidebar_state="expanded"
+)
 
 # Get API Key
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 
+# Custom CSS for better styling
+def local_css(file_name):
+    with open(file_name) as f:
+        st.markdown(f"<style>{f.read()}</style>", unsafe_allow_html=True)
+
+# Apply custom CSS
+local_css("style.css")
+
+def display_pdf(uploaded_file):
+    """Display a PDF file in an iframe with improved styling."""
+    bytes_data = uploaded_file.getvalue()
+    base64_pdf = base64.b64encode(bytes_data).decode('utf-8')
+    pdf_display = f'''
+    <div class="pdf-container">
+        <iframe src="data:application/pdf;base64,{base64_pdf}" 
+                width="100%" 
+                height="600px" 
+                type="application/pdf"
+                style="border: 1px solid #e1e4e8; border-radius: 8px;">
+        </iframe>
+    </div>
+    '''
+    st.markdown(pdf_display, unsafe_allow_html=True)
+
 def load_streamlit_page():
     """Load the Streamlit page with improved UI layout."""
-    st.set_page_config(layout="wide", page_title="LLM x RAG", page_icon="📄")
-    
-    # Custom CSS for better UI
-    st.markdown("""
+    # Header with logo and title - modified for better alignment
+    col1, col2 = st.columns([0.2, 0.8])
+    with col1:
+        # Add vertical padding to the logo to align with text
+        st.markdown("""
         <style>
-        .main {
-            padding: 1rem 1rem;
-        }
-        .stButton>button {
-            background-color: #4CAF50;
-            color: white;
-            border-radius: 5px;
-            padding: 0.5rem 1rem;
-            font-weight: bold;
-        }
-        .css-1d391kg {
-            padding-top: 3rem;
-        }
-        h1 {
-            color: #1E3A8A;
-        }
-        h3 {
-            color: #1E88E5;
-            margin-top: 1rem;
-        }
-        .upload-section {
-            background-color: #f8f9fa;
-            padding: 1.5rem;
-            border-radius: 10px;
-            margin-bottom: 1rem;
+        .aligned-logo {
+            padding-top: 50px;
         }
         </style>
-    """, unsafe_allow_html=True)
-    
-    st.title("📂 RAG untuk Pendataan Otomatis Support Layanan Sound System & Multimedia")
-    st.markdown("Aplikasi ini membantu Anda mengekstrak informasi dari PDF dan menginputkannya ke template Excel yang sudah ada")
+        <div class="aligned-logo">
+        """, unsafe_allow_html=True)
+        st.image("Logo.png", width=100)
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+    with col2:
+        st.title("📂 PDF Extraction dan Data Entry Automation")
+        st.markdown("**Pendataan Support Layanan Sound System & Multimedia**")
     
     st.markdown("---")
     
-    return st
-
-# Initialize session state variables if they don't exist
-if 'vector_store' not in st.session_state:
-    st.session_state.vector_store = None
+    # Main content columns
+    col1, col2 = st.columns([0.4, 0.6], gap="large")
     
-if 'generated_data' not in st.session_state:
-    st.session_state.generated_data = None
-    
-if 'merged_df' not in st.session_state:
-    st.session_state.merged_df = None
+    with col1:
+        with st.container(border=True):
+            st.subheader("📤 Unggah Dokumen", divider="blue")
+            st.markdown("Silakan unggah dokumen PDF dan file Excel template yang akan diproses.")
+            
+            uploaded_pdf = st.file_uploader(
+                "📄 Dokumen PDF", 
+                type=["pdf"],
+                help="Unggah dokumen PDF yang berisi informasi jadwal kegiatan"
+            )
+            
+            uploaded_excel = st.file_uploader(
+                "📊 Template Excel", 
+                type=["xlsx"],
+                help="Unggah file Excel template untuk data pendukung"
+            )
+            
+            # Help section
+            with st.expander("ℹ️ Petunjuk Penggunaan"):
+                st.markdown("""
+                1. Unggah dokumen PDF yang berisi informasi jadwal
+                2. Unggah template Excel yang akan diisi
+                3. Klik tombol 'Extract informasi dari PDF'
+                4. Periksa data yang dihasilkan
+                5. Unduh file Excel yang sudah digabungkan
+                """)
+        
+    return col1, col2, uploaded_pdf, uploaded_excel
 
 # Initialize Streamlit page
-st_page = load_streamlit_page()
+col1, col2, uploaded_pdf, uploaded_excel = load_streamlit_page()
 
-# Create two columns for upload section with 1:4 ratio
-col1, col2 = st.columns([1, 3])
-
-# Left column for uploads and controls
-with col1:
-    st.markdown('<div class="upload-section">', unsafe_allow_html=True)
-    st.subheader("📄 Unggah Dokumen")
-    uploaded_pdf = st.file_uploader("Unggah Dokumen PDF:", type=["pdf"], help="Pilih file PDF yang ingin diproses")
+# Process PDF
+if uploaded_pdf is not None:
+    with col2:
+        with st.container(border=True):
+            st.subheader("📑 Pratinjau Dokumen", divider="green")
+            display_pdf(uploaded_pdf)
     
-    if uploaded_pdf is not None:
-        st.success(f"✅ File berhasil diunggah: {uploaded_pdf.name}")
-        
-        if st.button("🔍 Ekstrak Informasi dari PDF", use_container_width=True):
-            with st.spinner("Mengekstrak teks dari PDF..."):
-                documents = get_pdf_text(uploaded_pdf)
-                st.session_state.vector_store = create_vectorstore_from_texts(documents, file_name=uploaded_pdf.name)
+    with st.spinner("🔍 Mengekstrak teks dari PDF..."):
+        try:
+            documents = get_pdf_text(uploaded_pdf)
+            st.session_state.vector_store = create_vectorstore_from_texts(
+                documents, 
+                file_name=uploaded_pdf.name
+            )
+            st.toast("✅ PDF berhasil diproses!", icon="✅")
+        except Exception as e:
+            st.error(f"Gagal memproses PDF: {str(e)}")
+
+# Generate table from PDF response
+if uploaded_pdf is not None:
+    extract_button = st.button(
+        "🔍 Extract informasi dari PDF",
+        type="primary",
+        help="Klik untuk mengekstrak informasi dari dokumen PDF",
+        use_container_width=True
+    )
+    
+    if extract_button:
+        with st.spinner("🧠 Menganalisis dokumen dan menghasilkan data tabel..."):
+            try:
+                answer = query_document(
+                    vectorstore=st.session_state.vector_store,
+                    query="Berikan saya HARI (contoh: Senin), TANGGAL (contoh: 02 January 2025, nama bulan dalam bahasa Inggris), AGENDA (perihal kegiatan), LOKASI, REQUESTOR (lihat di yang menandatangani misal Section Head Safety, isikan Safety), LAYANAN (Sound System atau Sound System & Multimedia [contoh multimedia: proyektor, microphone, screen, dan lain-lain]), TYPE_ACARA (biarkan kosong), SITE (Bumi Patra, atau Kilang RU VI Balongan, atau Office RU VI Balongan, Pilih salah satu sesuaikan dengan lokasi), dan WORKING_HOUR (Yes atau No)."
+                )
+                st.session_state.generated_data = pd.DataFrame(answer)
                 
-                # Generate data after successful vector store creation
-                with st.spinner("Menganalisis dokumen..."):
-                    answer = query_document(
-                        vectorstore=st.session_state.vector_store,
-                        query="Berikan saya HARI (contoh: Senin), TANGGAL (contoh: 02 January 2025, nama bulan dalam bahasa Inggris), AGENDA (perihal kegiatan), LOKASI, REQUESTOR (lihat di yang menandatangani misal Section Head Safety, isikan Safety), LAYANAN (Sound System atau Sound System & Multimedia [contoh multimedia: proyektor, microphone, screen, dan lain-lain]), TYPE_ACARA (biarkan kosong), SITE (Bumi Patra, atau Kilang RU VI Balongan, atau Office RU VI Balongan, Pilih salah satu sesuaikan dengan lokasi), dan WORKING_HOUR (Yes atau No)."
+                # Display success and data
+                st.toast("✅ Data berhasil diekstrak!", icon="✅")
+                with st.expander("📊 Data yang Diambil dari PDF", expanded=True):
+                    st.dataframe(
+                        st.session_state.generated_data,
+                        use_container_width=True,
+                        hide_index=True
                     )
-                    st.session_state.generated_data = answer
-                    
-                    if not answer.empty:
-                        st.success("✅ Data berhasil diekstrak!")
-                    else:
-                        st.error("❌ Gagal mengekstrak data. Silakan coba lagi.")
-    
-    st.markdown('<hr>', unsafe_allow_html=True)
-    
-    st.subheader("📊 Unggah File Excel")
-    uploaded_excel = st.file_uploader("Unggah File Data Excel:", type=["xlsx"], 
-                                      help="Pilih file Excel yang akan digabungkan dengan data hasil ekstraksi")
-    
-    if uploaded_excel is not None:
-        st.success(f"✅ File Excel berhasil diunggah: {uploaded_excel.name}")
-    
-    # Add merge button inside the sidebar if both files are uploaded
-    if uploaded_excel is not None and st.session_state.generated_data is not None:
-        if st.button("🔄 Insert Informasi ke Excel", use_container_width=True):
-            with st.spinner("Memproses file Excel..."):
-                try:
-                    excel_df = pd.read_excel(uploaded_excel, skiprows=3)
-                    
-                    # Correct column names
-                    correct_columns = ["NO", "HARI", "TANGGAL", "AGENDA", "LOKASI", 
-                                     "REQUESTOR", "LAYANAN", "TYPE_ACARA", "SITE", "WORKING_HOUR"]
-                    
-                    # Rename existing columns if necessary
-                    if len(excel_df.columns) == len(correct_columns):
-                        excel_df.columns = correct_columns
-                    
-                    # Format date column
-                    excel_df["TANGGAL"] = pd.to_datetime(excel_df['TANGGAL'], errors='coerce').dt.strftime('%d %B %Y')
-                    
-                    # Convert NO to numeric and find the last number
-                    excel_df["NO"] = pd.to_numeric(excel_df["NO"], errors="coerce")
-                    last_no = excel_df["NO"].dropna().max() or 0
-                    
-                    # Add new data with incremented NO
-                    generated_df = st.session_state.generated_data.copy()
-                    generated_df.insert(0, "NO", range(int(last_no) + 1, int(last_no) + 1 + len(generated_df)))
-                    
-                    # Merge data
-                    merged_df = pd.concat([excel_df, generated_df], ignore_index=True)
-                    st.session_state.merged_df = merged_df
-                    
-                    st.success("✅ Data berhasil digabungkan!")
-                except Exception as e:
-                    st.error(f"❌ Terjadi kesalahan: {str(e)}")
-    
-    st.markdown('</div>', unsafe_allow_html=True)
+            except Exception as e:
+                st.error(f"Gagal mengekstrak data: {str(e)}")
 
-# Right column for data displays
-with col2:
-    # Display extracted data from PDF
-    if st.session_state.generated_data is not None and not st.session_state.generated_data.empty:
-        st.subheader("📋 Data Hasil Ekstraksi")
-        st.dataframe(st.session_state.generated_data, use_container_width=True)
-    
-    # Show merged data if available
-    if st.session_state.merged_df is not None:
-        st.subheader("🔄 Data Gabungan")
-        st.dataframe(st.session_state.merged_df, use_container_width=True, height=400)
-        
-        # Create Excel file for download
-        output = io.BytesIO()
-        with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-            st.session_state.merged_df.to_excel(writer, sheet_name="Sheet1", startrow=3, index=False)
-            workbook = writer.book
-            worksheet = writer.sheets["Sheet1"]
+# Process Excel file and merge data
+if uploaded_excel is not None:
+    with st.spinner("📊 Memproses file Excel..."):
+        try:
+            excel_df = pd.read_excel(uploaded_excel, skiprows=3)
+            excel_df.columns = ["NO", "HARI", "TANGGAL", "AGENDA", "LOKASI", 
+                               "REQUESTOR", "LAYANAN", "TYPE_ACARA", "SITE", "WORKING_HOUR"]
             
-            # Set column widths
-            column_widths = {"NO": 5, "HARI": 10, "TANGGAL": 15, "AGENDA": 50, "LOKASI": 25, 
-                            "REQUESTOR": 20, "LAYANAN": 20, "TYPE_ACARA": 20, "SITE": 15, "WORKING_HOUR": 15}
+            # Clean and format data
+            excel_df["TANGGAL"] = pd.to_datetime(excel_df['TANGGAL'], errors='coerce').dt.strftime('%d %B %Y')
+            excel_df["NO"] = pd.to_numeric(excel_df["NO"], errors="coerce")
+            last_no = excel_df["NO"].dropna().max() or 0
             
-            for col_num, (col_name, width) in enumerate(column_widths.items()):
-                worksheet.set_column(col_num, col_num, width)
-            
-            # Add title formatting
-            title_format = workbook.add_format({
-                'bold': True, 
-                'align': 'center', 
-                'valign': 'vcenter', 
-                'font_size': 14
-            })
-            
-            # Add title
-            worksheet.merge_range(1, 0, 1, len(st.session_state.merged_df.columns) - 1, 
-                                "SUPPORT LAYANAN SOUND SYSTEM & MULTIMEDIA SSC ICT RU VI BALONGAN", title_format)
-        
-        output.seek(0)
-        
-        # Download button
-        st.download_button(
-            label="📥 Unduh Excel Baru",
-            data=output,
-            file_name="Support Sound Multimedia.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
+            if "generated_data" in st.session_state:
+                generated_df = st.session_state.generated_data.copy()
+                generated_df.insert(0, "NO", range(int(last_no) + 1, int(last_no) + 1 + len(generated_df)))
+                merged_df = pd.concat([excel_df, generated_df], ignore_index=True)
+                st.session_state.merged_df = merged_df
+                
+                # Display merged data
+                st.toast("✅ Data berhasil digabungkan!", icon="✅")
+                with st.expander("🧩 Data yang Sudah Digabung", expanded=True):
+                    st.dataframe(
+                        merged_df,
+                        use_container_width=True,
+                        hide_index=True
+                    )
+                
+                # Prepare Excel download
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    merged_df.to_excel(writer, sheet_name="Sheet1", startrow=3, index=False)
+                    workbook = writer.book
+                    worksheet = writer.sheets["Sheet1"]
+                    
+                    # Format columns
+                    column_widths = {
+                        "NO": 5, "HARI": 10, "TANGGAL": 15, "AGENDA": 30, 
+                        "LOKASI": 25, "REQUESTOR": 20, "LAYANAN": 20, 
+                        "TYPE_ACARA": 20, "SITE": 15, "WORKING_HOUR": 15
+                    }
+                    
+                    for col_num, (col_name, width) in enumerate(column_widths.items()):
+                        worksheet.set_column(col_num, col_num, width)
+                    
+                    # Add title and formatting
+                    title_format = workbook.add_format({
+                        'bold': True, 
+                        'align': 'center', 
+                        'valign': 'vcenter', 
+                        'font_size': 14,
+                        'font_name': 'Arial'
+                    })
+                    
+                    worksheet.merge_range(
+                        1, 0, 1, len(merged_df.columns) - 1, 
+                        "SUPPORT LAYANAN SOUND SYSTEM & MULTIMEDIA SSC ICT RU VI BALONGAN", 
+                        title_format
+                    )
+                
+                output.seek(0)
+                
+                # Download button with improved styling
+                st.download_button(
+                    label="📥 Unduh Excel yang Digabung",
+                    data=output,
+                    file_name=f"Support_Sound_Multimedia_{datetime.now().strftime('%Y%m%d_%H%M')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="primary",
+                    use_container_width=True,
+                    help="Klik untuk mengunduh file Excel yang sudah digabungkan"
+                )
+                
+        except Exception as e:
+            st.error(f"Gagal memproses file Excel: {str(e)}")
+
+# Footer
+st.markdown("---")
+st.markdown(
+    """
+    <div style="text-align: center; color: #666; font-size: 0.9em;">
+        <p>© 2025 AI Tools - Pendataan Sound System & Multimedia | Version 1.0</p>
+    </div>
+    """,
+    unsafe_allow_html=True
+)
