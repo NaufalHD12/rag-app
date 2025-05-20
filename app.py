@@ -48,6 +48,10 @@ def extract_pdf_content(uploaded_file):
     Extract text and images from PDF and display them in Streamlit with pagination.
     This approach avoids browser security restrictions with embedded PDFs.
     """
+    # Initialize session state for PDF pagination
+    if 'pdf_page_num' not in st.session_state:
+        st.session_state.pdf_page_num = 0
+    
     # Save uploaded file to temp location
     with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
         tmp_file.write(uploaded_file.getvalue())
@@ -58,22 +62,35 @@ def extract_pdf_content(uploaded_file):
         doc = fitz.open(temp_path)
         total_pages = len(doc)
         
-        # Create pagination controls
-        if 'pdf_page_num' not in st.session_state:
+        # Add navigation functions
+        def prev_page():
+            if st.session_state.pdf_page_num > 0:
+                st.session_state.pdf_page_num -= 1
+                
+        def next_page():
+            if st.session_state.pdf_page_num < total_pages - 1:
+                st.session_state.pdf_page_num += 1
+        
+        # Make sure page number is valid
+        if st.session_state.pdf_page_num >= total_pages:
             st.session_state.pdf_page_num = 0
             
         # Page selection controls
         col1, col2, col3 = st.columns([1, 3, 1])
         with col1:
-            if st.button("◀️ Previous", disabled=(st.session_state.pdf_page_num <= 0)):
-                st.session_state.pdf_page_num -= 1
+            st.button("◀️ Previous", 
+                      on_click=prev_page,
+                      disabled=(st.session_state.pdf_page_num <= 0),
+                      key=f"prev_btn_{uploaded_file.name}")
                 
         with col2:
             st.markdown(f"<h3 style='text-align: center;'>Halaman {st.session_state.pdf_page_num + 1} dari {total_pages}</h3>", unsafe_allow_html=True)
             
         with col3:
-            if st.button("Next ▶️", disabled=(st.session_state.pdf_page_num >= total_pages - 1)):
-                st.session_state.pdf_page_num += 1
+            st.button("Next ▶️", 
+                     on_click=next_page,
+                     disabled=(st.session_state.pdf_page_num >= total_pages - 1),
+                     key=f"next_btn_{uploaded_file.name}")
         
         # Display current page
         page = doc[st.session_state.pdf_page_num]
