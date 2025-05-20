@@ -277,13 +277,6 @@ if uploaded_excel is not None:
         except Exception as e:
             st.error(f"Gagal memproses file Excel: {str(e)}")
 
-# Add information about the PDF viewer method
-st.sidebar.markdown("""
-### Informasi Tampilan PDF
-Aplikasi ini menampilkan konten PDF sebagai gambar dan teks untuk menghindari masalah tampilan di berbagai browser. 
-
-Anda tetap dapat mengunduh PDF asli dengan tombol 'Unduh PDF Asli'.
-""")
 
 # Footer
 st.markdown("---")
