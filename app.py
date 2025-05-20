@@ -5,6 +5,17 @@ import base64
 import io
 from functions import *
 from datetime import datetime
+import sys
+import subprocess
+import importlib.util
+
+# Check if pysqlite3 is installed
+if importlib.util.find_spec("pysqlite3") is None:
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "pysqlite3-binary"])
+
+# This is the important part that replaces the system's SQLite with pysqlite3
+__import__('pysqlite3')
+sys.modules['sqlite3'] = sys.modules.pop('pysqlite3')
 
 # Set page config FIRST - before any other Streamlit commands
 st.set_page_config(
