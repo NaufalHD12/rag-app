@@ -71,7 +71,7 @@ def split_document(documents, chunk_size=1500, chunk_overlap=200):
 
 def get_embedding_function():
     return OpenAIEmbeddings(
-        model="text-embedding-ada-002", 
+        model="text-embedding-3-small", 
         openai_api_key=OPENAI_API_KEY
     )
 

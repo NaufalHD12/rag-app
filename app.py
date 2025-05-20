@@ -45,7 +45,7 @@ local_css("style.css")
 
 def extract_pdf_content(uploaded_file):
     """
-    Extract text and images from PDF and display them in Streamlit.
+    Extract text and images from PDF and display them in Streamlit with pagination.
     This approach avoids browser security restrictions with embedded PDFs.
     """
     # Save uploaded file to temp location
@@ -56,29 +56,35 @@ def extract_pdf_content(uploaded_file):
     try:
         # Open PDF with PyMuPDF
         doc = fitz.open(temp_path)
+        total_pages = len(doc)
         
-        # Loop through pages
-        for page_num, page in enumerate(doc):
-            st.subheader(f"Halaman {page_num + 1}")
+        # Create pagination controls
+        if 'pdf_page_num' not in st.session_state:
+            st.session_state.pdf_page_num = 0
             
-            # Extract text
-            text = page.get_text()
-            if text.strip():
-                with st.expander(f"Teks Halaman {page_num + 1}", expanded=False):
-                    st.text(text)
-            
-            # Extract images
-            # For simplicity, we'll render the whole page as an image
-            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x zoom for better quality
-            img_bytes = pix.tobytes("png")
-            
-            # Display the image
-            st.image(img_bytes, caption=f"Halaman {page_num + 1}", use_column_width=True)
-            
-            # Add separator between pages
-            if page_num < len(doc) - 1:
-                st.markdown("---")
+        # Page selection controls
+        col1, col2, col3 = st.columns([1, 3, 1])
+        with col1:
+            if st.button("◀️ Previous", disabled=(st.session_state.pdf_page_num <= 0)):
+                st.session_state.pdf_page_num -= 1
                 
+        with col2:
+            st.markdown(f"<h3 style='text-align: center;'>Halaman {st.session_state.pdf_page_num + 1} dari {total_pages}</h3>", unsafe_allow_html=True)
+            
+        with col3:
+            if st.button("Next ▶️", disabled=(st.session_state.pdf_page_num >= total_pages - 1)):
+                st.session_state.pdf_page_num += 1
+        
+        # Display current page
+        page = doc[st.session_state.pdf_page_num]
+            
+        # Extract images - render the whole page as an image
+        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x zoom for better quality
+        img_bytes = pix.tobytes("png")
+        
+        # Display the image
+        st.image(img_bytes, caption=f"Halaman {st.session_state.pdf_page_num + 1}", use_container_width=True)
+            
         # Provide a download link for the PDF
         st.download_button(
             "📥 Unduh PDF Asli",
