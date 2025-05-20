@@ -8,10 +8,17 @@ from datetime import datetime
 import sys
 import subprocess
 import importlib.util
+import tempfile
+import fitz  # PyMuPDF
+import numpy as np
+from PIL import Image
+import pytesseract
 
-# Check if pysqlite3 is installed
-if importlib.util.find_spec("pysqlite3") is None:
-    subprocess.check_call([sys.executable, "-m", "pip", "install", "pysqlite3-binary"])
+# Check and install required libraries
+required_packages = ["pymupdf", "pytesseract", "pysqlite3-binary"]
+for package in required_packages:
+    if importlib.util.find_spec(package.split("-")[0]) is None:
+        subprocess.check_call([sys.executable, "-m", "pip", "install", package])
 
 # This is the important part that replaces the system's SQLite with pysqlite3
 __import__('pysqlite3')
@@ -36,61 +43,56 @@ def local_css(file_name):
 # Apply custom CSS
 local_css("style.css")
 
-def display_pdf(uploaded_file):
+def extract_pdf_content(uploaded_file):
     """
-    Display PDF with multiple methods for better cross-browser compatibility.
-    Uses PDF.js viewer as primary method with data URL fallback.
+    Extract text and images from PDF and display them in Streamlit.
+    This approach avoids browser security restrictions with embedded PDFs.
     """
-    # Method 1: Use PDF.js viewer (more compatible approach)
-    bytes_data = uploaded_file.getvalue()
-    base64_pdf = base64.b64encode(bytes_data).decode('utf-8')
+    # Save uploaded file to temp location
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+        tmp_file.write(uploaded_file.getvalue())
+        temp_path = tmp_file.name
     
-    # Create a temporary file for the PDF
-    file_path = f"temp_pdf_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
-    with open(file_path, "wb") as f:
-        f.write(bytes_data)
-    
-    # PDF.js viewer with file path (works better with Chrome)
-    pdf_display = f"""
-    <div class="pdf-container" style="width:100%; height:600px; overflow:hidden; border:1px solid #e1e4e8; border-radius:8px;">
-        <iframe 
-            src="https://mozilla.github.io/pdf.js/web/viewer.html?file={file_path}"
-            width="100%" 
-            height="600px" 
-            style="border:none;">
-        </iframe>
-    </div>
-    """
-    
-    # Fallback method using data URL if needed
-    fallback_display = f"""
-    <div class="pdf-container" style="width:100%; height:600px; overflow:hidden; border:1px solid #e1e4e8; border-radius:8px;">
-        <object 
-            data="data:application/pdf;base64,{base64_pdf}" 
-            type="application/pdf"
-            width="100%" 
-            height="600px">
-            <p>Dokumen tidak dapat ditampilkan. 
-               <a href="data:application/pdf;base64,{base64_pdf}" download="{uploaded_file.name}">Klik untuk mengunduh</a>
-            </p>
-        </object>
-    </div>
-    """
-    
-    # Try the primary method first
     try:
-        st.markdown(pdf_display, unsafe_allow_html=True)
-    except Exception:
-        # Fall back to the data URL method
-        st.markdown(fallback_display, unsafe_allow_html=True)
-    
-    # Add a direct download link
-    st.download_button(
-        "📥 Unduh PDF",
-        data=bytes_data,
-        file_name=uploaded_file.name,
-        mime="application/pdf",
-    )
+        # Open PDF with PyMuPDF
+        doc = fitz.open(temp_path)
+        
+        # Loop through pages
+        for page_num, page in enumerate(doc):
+            st.subheader(f"Halaman {page_num + 1}")
+            
+            # Extract text
+            text = page.get_text()
+            if text.strip():
+                with st.expander(f"Teks Halaman {page_num + 1}", expanded=False):
+                    st.text(text)
+            
+            # Extract images
+            # For simplicity, we'll render the whole page as an image
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # 2x zoom for better quality
+            img_bytes = pix.tobytes("png")
+            
+            # Display the image
+            st.image(img_bytes, caption=f"Halaman {page_num + 1}", use_column_width=True)
+            
+            # Add separator between pages
+            if page_num < len(doc) - 1:
+                st.markdown("---")
+                
+        # Provide a download link for the PDF
+        st.download_button(
+            "📥 Unduh PDF Asli",
+            data=uploaded_file.getvalue(),
+            file_name=uploaded_file.name,
+            mime="application/pdf",
+        )
+            
+    except Exception as e:
+        st.error(f"Error saat memproses PDF: {str(e)}")
+    finally:
+        # Clean up
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
 
 def load_streamlit_page():
     """Load the Streamlit page with improved UI layout."""
@@ -156,31 +158,8 @@ if uploaded_pdf is not None:
         with st.container(border=True):
             st.subheader("📑 Pratinjau Dokumen", divider="green")
             
-            # Add PDF viewer type selector (optional)
-            viewer_type = st.radio(
-                "Pilih metode tampilan PDF:",
-                options=["PDF.js Viewer", "Data URL (Fallback)"],
-                horizontal=True,
-                index=0
-            )
-            
-            if viewer_type == "PDF.js Viewer":
-                display_pdf(uploaded_pdf)
-            else:
-                # Fallback method
-                bytes_data = uploaded_pdf.getvalue()
-                base64_pdf = base64.b64encode(bytes_data).decode('utf-8')
-                pdf_display = f'''
-                <div class="pdf-container">
-                    <iframe src="data:application/pdf;base64,{base64_pdf}" 
-                            width="100%" 
-                            height="600px" 
-                            type="application/pdf"
-                            style="border: 1px solid #e1e4e8; border-radius: 8px;">
-                    </iframe>
-                </div>
-                '''
-                st.markdown(pdf_display, unsafe_allow_html=True)
+            # Display PDF content using our text+image extraction
+            extract_pdf_content(uploaded_pdf)
     
     with st.spinner("🔍 Mengekstrak teks dari PDF..."):
         try:
@@ -298,38 +277,20 @@ if uploaded_excel is not None:
         except Exception as e:
             st.error(f"Gagal memproses file Excel: {str(e)}")
 
-# Add warning for older browsers
+# Add information about the PDF viewer method
 st.sidebar.markdown("""
-### Informasi Browser
-Aplikasi ini bekerja optimal di browser modern.
-Jika Anda mengalami masalah dengan tampilan PDF, coba gunakan:
-- Google Chrome versi terbaru
-- Mozilla Firefox
-- Microsoft Edge
+### Informasi Tampilan PDF
+Aplikasi ini menampilkan konten PDF sebagai gambar dan teks untuk menghindari masalah tampilan di berbagai browser. 
+
+Anda tetap dapat mengunduh PDF asli dengan tombol 'Unduh PDF Asli'.
 """)
-
-# Add a cleanup function to remove temporary files
-def cleanup_temp_files():
-    import glob
-    for file in glob.glob("temp_pdf_*.pdf"):
-        try:
-            os.remove(file)
-        except:
-            pass
-
-# Register the cleanup function to run at app shutdown
-try:
-    import atexit
-    atexit.register(cleanup_temp_files)
-except:
-    pass
 
 # Footer
 st.markdown("---")
 st.markdown(
     """
     <div style="text-align: center; color: #666; font-size: 0.9em;">
-        <p>© 2025 AI Tools - Pendataan Sound System & Multimedia | Version 1.1</p>
+        <p>© 2025 AI Tools - Pendataan Sound System & Multimedia | Version 1.2</p>
     </div>
     """,
     unsafe_allow_html=True
