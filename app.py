@@ -37,20 +37,60 @@ def local_css(file_name):
 local_css("style.css")
 
 def display_pdf(uploaded_file):
-    """Display a PDF file in an iframe with improved styling."""
+    """
+    Display PDF with multiple methods for better cross-browser compatibility.
+    Uses PDF.js viewer as primary method with data URL fallback.
+    """
+    # Method 1: Use PDF.js viewer (more compatible approach)
     bytes_data = uploaded_file.getvalue()
     base64_pdf = base64.b64encode(bytes_data).decode('utf-8')
-    pdf_display = f'''
-    <div class="pdf-container">
-        <iframe src="data:application/pdf;base64,{base64_pdf}" 
-                width="100%" 
-                height="600px" 
-                type="application/pdf"
-                style="border: 1px solid #e1e4e8; border-radius: 8px;">
+    
+    # Create a temporary file for the PDF
+    file_path = f"temp_pdf_{datetime.now().strftime('%Y%m%d%H%M%S')}.pdf"
+    with open(file_path, "wb") as f:
+        f.write(bytes_data)
+    
+    # PDF.js viewer with file path (works better with Chrome)
+    pdf_display = f"""
+    <div class="pdf-container" style="width:100%; height:600px; overflow:hidden; border:1px solid #e1e4e8; border-radius:8px;">
+        <iframe 
+            src="https://mozilla.github.io/pdf.js/web/viewer.html?file={file_path}"
+            width="100%" 
+            height="600px" 
+            style="border:none;">
         </iframe>
     </div>
-    '''
-    st.markdown(pdf_display, unsafe_allow_html=True)
+    """
+    
+    # Fallback method using data URL if needed
+    fallback_display = f"""
+    <div class="pdf-container" style="width:100%; height:600px; overflow:hidden; border:1px solid #e1e4e8; border-radius:8px;">
+        <object 
+            data="data:application/pdf;base64,{base64_pdf}" 
+            type="application/pdf"
+            width="100%" 
+            height="600px">
+            <p>Dokumen tidak dapat ditampilkan. 
+               <a href="data:application/pdf;base64,{base64_pdf}" download="{uploaded_file.name}">Klik untuk mengunduh</a>
+            </p>
+        </object>
+    </div>
+    """
+    
+    # Try the primary method first
+    try:
+        st.markdown(pdf_display, unsafe_allow_html=True)
+    except Exception:
+        # Fall back to the data URL method
+        st.markdown(fallback_display, unsafe_allow_html=True)
+    
+    # Add a direct download link
+    st.download_button(
+        "📥 Unduh PDF",
+        data=bytes_data,
+        file_name=uploaded_file.name,
+        mime="application/pdf",
+    )
 
 def load_streamlit_page():
     """Load the Streamlit page with improved UI layout."""
@@ -115,7 +155,32 @@ if uploaded_pdf is not None:
     with col2:
         with st.container(border=True):
             st.subheader("📑 Pratinjau Dokumen", divider="green")
-            display_pdf(uploaded_pdf)
+            
+            # Add PDF viewer type selector (optional)
+            viewer_type = st.radio(
+                "Pilih metode tampilan PDF:",
+                options=["PDF.js Viewer", "Data URL (Fallback)"],
+                horizontal=True,
+                index=0
+            )
+            
+            if viewer_type == "PDF.js Viewer":
+                display_pdf(uploaded_pdf)
+            else:
+                # Fallback method
+                bytes_data = uploaded_pdf.getvalue()
+                base64_pdf = base64.b64encode(bytes_data).decode('utf-8')
+                pdf_display = f'''
+                <div class="pdf-container">
+                    <iframe src="data:application/pdf;base64,{base64_pdf}" 
+                            width="100%" 
+                            height="600px" 
+                            type="application/pdf"
+                            style="border: 1px solid #e1e4e8; border-radius: 8px;">
+                    </iframe>
+                </div>
+                '''
+                st.markdown(pdf_display, unsafe_allow_html=True)
     
     with st.spinner("🔍 Mengekstrak teks dari PDF..."):
         try:
@@ -233,12 +298,38 @@ if uploaded_excel is not None:
         except Exception as e:
             st.error(f"Gagal memproses file Excel: {str(e)}")
 
+# Add warning for older browsers
+st.sidebar.markdown("""
+### Informasi Browser
+Aplikasi ini bekerja optimal di browser modern.
+Jika Anda mengalami masalah dengan tampilan PDF, coba gunakan:
+- Google Chrome versi terbaru
+- Mozilla Firefox
+- Microsoft Edge
+""")
+
+# Add a cleanup function to remove temporary files
+def cleanup_temp_files():
+    import glob
+    for file in glob.glob("temp_pdf_*.pdf"):
+        try:
+            os.remove(file)
+        except:
+            pass
+
+# Register the cleanup function to run at app shutdown
+try:
+    import atexit
+    atexit.register(cleanup_temp_files)
+except:
+    pass
+
 # Footer
 st.markdown("---")
 st.markdown(
     """
     <div style="text-align: center; color: #666; font-size: 0.9em;">
-        <p>© 2025 AI Tools - Pendataan Sound System & Multimedia | Version 1.0</p>
+        <p>© 2025 AI Tools - Pendataan Sound System & Multimedia | Version 1.1</p>
     </div>
     """,
     unsafe_allow_html=True

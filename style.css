@@ -1,25 +1,106 @@
-/* style.css */
+/* Add these to your style.css file */
+
+/* PDF container styling */
 .pdf-container {
-    background: #f8f9fa;
-    padding: 1rem;
+    width: 100%;
+    height: 600px;
+    border: 1px solid #e1e4e8;
     border-radius: 8px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    overflow: hidden;
+    margin-bottom: 1rem;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
 }
 
-.stButton>button {
-    transition: all 0.3s ease;
+/* Fix for PDF loading indicator */
+.pdf-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100%;
+    background-color: #f8f9fa;
+    color: #5a5a5a;
+    font-size: 1.2rem;
 }
 
-.stButton>button:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+/* Better button styling */
+.stButton > button {
+    border-radius: 6px !important;
+    transition: all 0.3s ease !important;
 }
 
-.st-emotion-cache-1q7spjk {
-    border: 1px solid #e1e4e8 !important;
+.stButton > button:hover {
+    transform: translateY(-2px) !important;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1) !important;
+}
+
+/* Custom container border and shadow */
+[data-testid="stVerticalBlock"] > [style*="flex"] {
+    gap: 1rem !important;
+}
+
+/* Better expander styling */
+.streamlit-expanderHeader {
+    font-weight: 600 !important;
+    color: #1f77b4 !important;
+}
+
+/* Custom toast styling */
+.stToast {
     border-radius: 8px !important;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
 }
 
-.stMarkdown {
-    line-height: 1.6;
+/* Form field improvements */
+.stFileUploader label, .stSelectbox label {
+    font-weight: 500 !important;
+    color: #444 !important;
+}
+
+/* Dataframe styling enhancements */
+[data-testid="stDataFrame"] {
+    border-radius: 8px !important;
+    overflow: hidden !important;
+    border: 1px solid #e6e6e6 !important;
+}
+
+/* Animation for loading spinner */
+@keyframes pulse {
+    0% { opacity: 0.6; }
+    50% { opacity: 1; }
+    100% { opacity: 0.6; }
+}
+
+.stSpinner {
+    animation: pulse 1.5s infinite ease-in-out !important;
+}
+
+/* Add responsive adjustment for mobile devices */
+@media (max-width: 768px) {
+    .pdf-container {
+        height: 400px;
+    }
+    
+    .stColumnContainer {
+        flex-direction: column !important;
+    }
+    
+    .stColumnContainer > div {
+        width: 100% !important;  
+    }
+}
+
+/* Fix for Firefox PDF display */
+@-moz-document url-prefix() {
+    .pdf-container iframe {
+        min-height: 600px;
+    }
+}
+
+/* Fix for Safari PDF display */
+@media not all and (min-resolution:.001dpcm) { 
+    @supports (-webkit-appearance:none) {
+        .pdf-container object {
+            height: 610px;
+        }
+    }
 }
